@@ -1,6 +1,7 @@
 // Include classess and API
 #include "main.h"
 #include "api.h"
+#include "pros/misc.h"
 //#include "classess.cpp"
 
 //Temperary declarations
@@ -8,22 +9,44 @@
 //Declare Controller
 pros::Controller Master(pros::E_CONTROLLER_MASTER);
 
+//Declare Inertial Sensor
+pros::IMU Gyro(9);
+
 //Declare Motors
 
 pros::Motor MotorLeftF(11, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEGREES);
 pros::Motor MotorLeftB(17, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEGREES);
 pros::Motor MotorRightF(1, pros::E_MOTOR_GEARSET_18, false, pros::E_MOTOR_ENCODER_DEGREES);
 pros::Motor MotorRightB(7, pros::E_MOTOR_GEARSET_18, false, pros::E_MOTOR_ENCODER_DEGREES);
-pros::Motor Intake(20, pros::E_MOTOR_GEARSET_18, false, pros::
-E_MOTOR_ENCODER_DEGREES);
-pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, true, pros::E_MOTOR_ENCODER_DEGREES);
+pros::Motor Intake(20, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEGREES);
+pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_DEGREES);
+
+//Triport Objects
+pros::ADIDigitalOut Endgame('B', false);
 
 //Declare Motor Groups
 pros::Motor_Group LeftDB({MotorLeftF, MotorLeftB});
 pros::Motor_Group RightDB({MotorRightF, MotorRightB});
 
 
+// Constant Values
+const float WHEELDIAMETER = 4.125;
+const float WHEELRADIUS = WHEELDIAMETER / 2;
+const float PI = 3.14159;
+const float DBRATIO = (double)72/48;
+
 //Methods for Auton and Driver control
+
+void arcade(){
+	//Declare variables for arcade drive
+		double power = Master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
+		double turn = Master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
+
+		//Declare Arcade drive
+		RightDB.move(power - turn);
+		LeftDB.move(power + turn);
+
+}
 
 //Run Cata
 // Spin catapult at volts, normally called for a period or upon button press
@@ -46,6 +69,52 @@ void intake(double volts){
 		Intake.move(volts);
 	}
 }
+
+/**void pidMove(double dist){
+  double volts, pastError, derivative;
+  double kP = 4.20;
+  double kD = 0;
+  LeftDB.set_zero_position(0);
+  RightDB.set_zero_position(0);
+  double initialDist = ((RightDB.get_positions()[0] + LeftDB.get_positions()[0]) / 2) * DBRATIO * WHEELRADIUS * PI;
+  double error = dist;
+  while(fabs(error) > 0.3){
+    double reading = (((RightDB.get_positions()[0] + LeftDB.get_positions()[0]) / 2) * DBRATIO * WHEELRADIUS * PI) - initialDist;
+    error = dist - reading;
+    derivative = (error - pastError);
+    volts = (error * kP) - (derivative * kD);
+    LeftDB.move(volts);
+    RightDB.move(volts);
+    pastError = error;
+    pros::delay(8);
+  }
+  LeftDB.brake();
+  RightDB.brake();
+  pros::delay(500);
+}
+
+void pidTurn(double degr){
+  double volts, pastError, derivative;
+  double kP = 4.20;
+  double kD = 0;
+  LeftDB.set_zero_position(0);
+  RightDB.set_zero_position(0);
+  double initialDegr = Gyro.get_heading();
+  double error = degr;
+  while(fabs(error) > 0.3){
+    double reading = Gyro.get_heading() - initialDegr;
+    error = degr - reading;
+    derivative = (error - pastError);
+    volts = (error * kP) - (derivative * kD);
+    LeftDB.move(volts);
+    RightDB.move(volts);
+    pastError = error;
+   pros::delay(8);
+  }
+  LeftDB.brake();
+  RightDB.brake();
+  pros::delay(500);
+}*/
 
 
 /**
@@ -113,22 +182,16 @@ void opcontrol() {
 	while(true){
 		pros::delay(20);
 
-		//Declare variables for arcade drive
-		double power = Master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
-		double turn = Master.get_analog(pros::E_CONTROLLER_ANALOG_RIGHT_X);
-
-		//Declare Arcade drive
-		RightDB.move(power - turn);
-		LeftDB.move(power + turn);
+		arcade();
 
 		//Run intake
-		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){
+		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_R2)){ //Intake
 			intake(127);
 		}
-        else if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){ //Outtake
+    	else if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_R1)){ //Outtake
 			intake(-127);
 		}
-        else{
+    	else{ //Stop Intake	
             intake(0);
         }
 		
@@ -136,8 +199,16 @@ void opcontrol() {
 		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_L2)){
 			cataLaunch(127);
 		}
-		else{
+		else{ //Stop Cata
 			cataLaunch(0);
 		}
+
+		//Allows endgame to be activated and deactivated
+		bool endgameExtend = true;
+		//Activate Endgame
+		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
+			Endgame.set_value(endgameExtend);
+			endgameExtend = !(endgameExtend);
+		}
 	}
-	}
+}
