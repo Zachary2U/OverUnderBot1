@@ -63,8 +63,8 @@ lemlib::OdomSensors_t sensors {
 
 // Linear Movement PID (Forward and Reverse)
 lemlib::ChassisController_t lateralController {
-    8, // kP
-    30, // kD
+    6.4, // kP
+    15, // kD
     1, // smallErrorRange
     100, // smallErrorTimeout
     3, // largeErrorRange
@@ -74,13 +74,13 @@ lemlib::ChassisController_t lateralController {
  
 // Turning PID
 lemlib::ChassisController_t angularController {
-    4, // kP
-    40, // kD
-    1, // smallErrorRange
-    100, // smallErrorTimeout
-    3, // largeErrorRange
-    500, // largeErrorTimeout
-    0 // slew rate
+    1.94, // kP
+    16, // kD
+    0.25, // smallErrorRange
+    1000, // smallErrorTimeout
+    1, // largeErrorRange
+    2000, // largeErrorTimeout
+    40 // slew rate
 };
 
 //Create Chassis (LemLib) For Auton Movement
@@ -119,53 +119,6 @@ void intake(double volts){
 		Intake.move(volts);
 	}
 }
-
-/**void pidMove(double dist){
-  double volts, pastError, derivative;
-  double kP = 4.20;
-  double kD = 0;
-  LeftDB.set_zero_position(0);
-  RightDB.set_zero_position(0);
-  double initialDist = ((RightDB.get_positions()[0] + LeftDB.get_positions()[0]) / 2) * DBRATIO * WHEELRADIUS * PI;
-  double error = dist;
-  while(fabs(error) > 0.3){
-    double reading = (((RightDB.get_positions()[0] + LeftDB.get_positions()[0]) / 2) * DBRATIO * WHEELRADIUS * PI) - initialDist;
-    error = dist - reading;
-    derivative = (error - pastError);
-    volts = (error * kP) - (derivative * kD);
-    LeftDB.move(volts);
-    RightDB.move(volts);
-    pastError = error;
-    pros::delay(8);
-  }
-  LeftDB.brake();
-  RightDB.brake();
-  pros::delay(500);
-}
-
-void pidTurn(double degr){
-  double volts, pastError, derivative;
-  double kP = 4.20;
-  double kD = 0;
-  LeftDB.set_zero_position(0);
-  RightDB.set_zero_position(0);
-  double initialDegr = Gyro.get_heading();
-  double error = degr;
-  while(fabs(error) > 0.3){
-    double reading = Gyro.get_heading() - initialDegr;
-    error = degr - reading;
-    derivative = (error - pastError);
-    volts = (error * kP) - (derivative * kD);
-    LeftDB.move(volts);
-    RightDB.move(volts);
-    pastError = error;
-   pros::delay(8);
-  }
-  LeftDB.brake();
-  RightDB.brake();
-  pros::delay(500);
-}*/
-
 
 /**
  * Runs initialization code. This occurs as soon as the program is started.
@@ -215,7 +168,12 @@ void autonomous() {
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
 	//Auton 1
-	//DB.moveTo()
+	//Move forward, Turn right, Put matchload into goal
+
+	
+	DB.turnTo(0,-10, 2000);
+	lemlib::Pose pose = DB.getPose();
+	pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
 }
 
 /**
@@ -234,13 +192,16 @@ void autonomous() {
 void opcontrol() {
 	//User Control
 	while(true){
+
+		//Delay so information on screen is visible and calls are accurate
 		pros::delay(20);
+		
 		lemlib::Pose pose = DB.getPose(); // get the current position of the robot
         pros::lcd::print(0, "x: %f", pose.x); // print the x position
         pros::lcd::print(1, "y: %f", pose.y); // print the y position
         pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
-        pros::delay(10);
 
+		//Allow for arcade drive 
 		arcade();
 
 		//Run intake
