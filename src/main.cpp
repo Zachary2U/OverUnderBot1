@@ -1,7 +1,9 @@
 // Include classess and API
 #include "main.h"
 #include "api.h"
+#include "lemlib/chassis/chassis.hpp"
 #include "pros/misc.h"
+#include "lemlib/api.hpp"
 //#include "classess.cpp"
 
 //Temperary declarations
@@ -9,11 +11,16 @@
 //Declare Controller
 pros::Controller Master(pros::E_CONTROLLER_MASTER);
 
+// Constant Values
+const float WHEELDIAMETER = 4.125;
+const float WHEELRADIUS = WHEELDIAMETER / 2;
+const float PI = 3.14159;
+const float DBRATIO = (double)72/48;
+
 //Declare Inertial Sensor
 pros::IMU Gyro(9);
 
 //Declare Motors
-
 pros::Motor MotorLeftF(11, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEGREES);
 pros::Motor MotorLeftB(17, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEGREES);
 pros::Motor MotorRightF(1, pros::E_MOTOR_GEARSET_18, false, pros::E_MOTOR_ENCODER_DEGREES);
@@ -22,21 +29,64 @@ pros::Motor Intake(20, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEG
 pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_DEGREES);
 
 //Triport Objects
-pros::ADIDigitalOut Endgame('B', false);
+pros::ADIDigitalOut Endgame('B', false); //Piston starts extended through tubing
 
 //Declare Motor Groups
 pros::Motor_Group LeftDB({MotorLeftF, MotorLeftB});
 pros::Motor_Group RightDB({MotorRightF, MotorRightB});
 
 
-// Constant Values
-const float WHEELDIAMETER = 4.125;
-const float WHEELRADIUS = WHEELDIAMETER / 2;
-const float PI = 3.14159;
-const float DBRATIO = (double)72/48;
+//Use LemLib to create a DriveBase to allow for accurate autonomus
+lemlib::Drivetrain_t drivetrain {
+    &LeftDB, // left drivetrain motors
+    &RightDB, // right drivetrain motors
+    11.5625, // track width
+    4, // wheel diameter
+    300 // wheel rpm
+};
+
+
+//Sensor Declaration
+
+lemlib::OdomSensors_t sensors {
+    nullptr, // vertical tracking wheel 1
+    nullptr, // vertical tracking wheel 2
+    nullptr, // horizontal tracking wheel 1
+    nullptr, // we don't have a second tracking wheel, so we set it to nullptr
+    &Gyro // inertial sensor
+};
+
 
 //Methods for Auton and Driver control
 
+//PID's
+
+// Linear Movement PID (Forward and Reverse)
+lemlib::ChassisController_t lateralController {
+    8, // kP
+    30, // kD
+    1, // smallErrorRange
+    100, // smallErrorTimeout
+    3, // largeErrorRange
+    500, // largeErrorTimeout
+    5 // slew rate
+};
+ 
+// Turning PID
+lemlib::ChassisController_t angularController {
+    4, // kP
+    40, // kD
+    1, // smallErrorRange
+    100, // smallErrorTimeout
+    3, // largeErrorRange
+    500, // largeErrorTimeout
+    0 // slew rate
+};
+
+//Create Chassis (LemLib) For Auton Movement
+lemlib::Chassis DB(drivetrain, lateralController, angularController, sensors);
+
+//Driver Control
 void arcade(){
 	//Declare variables for arcade drive
 		double power = Master.get_analog(pros::E_CONTROLLER_ANALOG_LEFT_Y);
@@ -125,6 +175,8 @@ void pidTurn(double degr){
  */
 void initialize() {
     pros::lcd::initialize();
+	DB.calibrate();
+	DB.setPose(0,0,0);
 }
 
 /**
@@ -133,7 +185,6 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
-	
 }
 
 /**
@@ -146,7 +197,6 @@ void disabled() {
  * starts.
  */
 void competition_initialize() {
-	//Initilization (Interial sensor)
 }
 
 /**
@@ -162,6 +212,10 @@ void competition_initialize() {
  */
 void autonomous() {
 	//Auton
+	//NOTE: Y is original lateral movement
+	//NOTE: X is Perpendicular movement to placement
+	//Auton 1
+	//DB.moveTo()
 }
 
 /**
@@ -181,6 +235,11 @@ void opcontrol() {
 	//User Control
 	while(true){
 		pros::delay(20);
+		lemlib::Pose pose = DB.getPose(); // get the current position of the robot
+        pros::lcd::print(0, "x: %f", pose.x); // print the x position
+        pros::lcd::print(1, "y: %f", pose.y); // print the y position
+        pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+        pros::delay(10);
 
 		arcade();
 
@@ -203,12 +262,9 @@ void opcontrol() {
 			cataLaunch(0);
 		}
 
-		//Allows endgame to be activated and deactivated
-		bool endgameExtend = true;
 		//Activate Endgame
 		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-			Endgame.set_value(endgameExtend);
-			endgameExtend = !(endgameExtend);
+			Endgame.set_value(true);
 		}
 	}
 }
