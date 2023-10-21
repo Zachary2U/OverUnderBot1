@@ -2,6 +2,7 @@
 #include "main.h"
 #include "api.h"
 #include "lemlib/chassis/chassis.hpp"
+#include "pros/adi.hpp"
 #include "pros/misc.h"
 #include "lemlib/api.hpp"
 //#include "classess.cpp"
@@ -29,11 +30,15 @@ pros::Motor Intake(20, pros::E_MOTOR_GEARSET_18, true, pros::E_MOTOR_ENCODER_DEG
 pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_DEGREES);
 
 //Triport Objects
+//Endgame/Hang
 pros::ADIDigitalOut Endgame('B', false); //Piston starts extended through tubing
+//AutonSelector
+pros::ADIPotentiometer AutoSelector('C', pros::E_ADI_POT_EDR);
 
 //Declare Motor Groups
 pros::Motor_Group LeftDB({MotorLeftF, MotorLeftB});
 pros::Motor_Group RightDB({MotorRightF, MotorRightB});
+pros::MotorGroup MotorGroupDriveBase({MotorLeftF, MotorLeftB, MotorRightF, MotorRightB});
 
 
 //Use LemLib to create a DriveBase to allow for accurate autonomus
@@ -120,6 +125,31 @@ void intake(double volts){
 	}
 }
 
+void autoSelector(){
+	//Show what auton was selected on the brain
+	AutoSelector.calibrate();
+	std::string AutoSelection = "";
+	while(pros::competition::is_disabled()){
+		if(AutoSelector.get_angle() <= 90){
+			AutoSelection = "Left";
+		}
+		else if(AutoSelector.get_angle() >= 240){
+			AutoSelection = "Right";
+		}
+		else{
+			AutoSelection = "Cata";
+		}
+
+
+		//Print the values to the brain screen
+		pros::lcd::print(4,"Auton Selection: %s", AutoSelection);
+		pros::lcd::print(5,"Potentiometer Reading: %s", AutoSelection);
+
+		pros::delay(50);
+	}
+	pros::lcd::clear();
+}
+
 /**
  * Runs initialization code. This occurs as soon as the program is started.
  *
@@ -127,9 +157,13 @@ void intake(double volts){
  * to keep execution time for this mode under a few seconds.
  */
 void initialize() {
-    pros::lcd::initialize();
+    //pros::lcd::initialize();
 	DB.calibrate();
 	DB.setPose(0,0,0);
+	pros::lcd::initialize();
+	AutoSelector.calibrate();
+	pros::delay(2000);
+	autoSelector();
 }
 
 /**
@@ -167,13 +201,37 @@ void autonomous() {
 	//Auton
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
-	//Auton 1
+	if(AutoSelector.get_angle() <= 90){
+		//Auton LeftSide
 	//Move forward, Turn right, Put matchload into goal
-
-	
-	DB.turnTo(0,-10, 2000);
-	lemlib::Pose pose = DB.getPose();
-	pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+	DB.moveTo(0, 41, 1000);
+	DB.turnTo(30, 41, 1000);
+	DB.moveTo(8, 41, 1000);
+	intake(-127);
+	pros::delay(1000);
+	MotorGroupDriveBase.move(127);
+	pros::delay(2000);
+	intake(0);
+	MotorGroupDriveBase.brake();
+	}
+	else if(AutoSelector.get_angle() >= 240){
+		//Auton LeftSide
+	//Move forward, Turn right, Put matchload into goal
+	DB.moveTo(0, 41, 1000);
+	DB.turnTo(-30, 41, 1000);
+	DB.moveTo(-8, 41, 1000);
+	intake(-127);
+	pros::delay(1000);
+	MotorGroupDriveBase.move(127);
+	pros::delay(2000);
+	intake(0);
+	MotorGroupDriveBase.brake();
+	}
+	else{
+		cataLaunch(127);
+		pros::delay(2000);
+		cataLaunch(0);
+	}
 }
 
 /**
