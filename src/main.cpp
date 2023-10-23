@@ -2,6 +2,7 @@
 #include "main.h"
 #include "api.h"
 #include "lemlib/chassis/chassis.hpp"
+#include "pros/adi.h"
 #include "pros/adi.hpp"
 #include "pros/misc.h"
 #include "lemlib/api.hpp"
@@ -33,7 +34,7 @@ pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_DEGR
 //Endgame/Hang
 pros::ADIDigitalOut Endgame('B', false); //Piston starts extended through tubing
 //AutonSelector
-pros::ADIPotentiometer AutoSelector('C', pros::E_ADI_POT_EDR);
+pros::ADIPotentiometer AutoSelector('C', pros::E_ADI_POT_V2);
 
 //Declare Motor Groups
 pros::Motor_Group LeftDB({MotorLeftF, MotorLeftB});
@@ -124,26 +125,35 @@ void intake(double volts){
 		Intake.move(volts);
 	}
 }
+bool right = false;
+bool left = false;
 
 void autoSelector(){
 	//Show what auton was selected on the brain
 	AutoSelector.calibrate();
+	double current = AutoSelector.get_value_calibrated();
 	std::string AutoSelection = "";
 	while(pros::competition::is_disabled()){
-		if(AutoSelector.get_angle() <= 90){
+		if(AutoSelector.get_value_calibrated() <= current + 90){
 			AutoSelection = "Left";
+			left = true;
+			right = false;
 		}
-		else if(AutoSelector.get_angle() >= 240){
+		else if(AutoSelector.get_value_calibrated() >= current + 240){
 			AutoSelection = "Right";
+			right = true;
+			left = false;
 		}
 		else{
 			AutoSelection = "Cata";
+			left = false;
+			right = false;
 		}
 
 
 		//Print the values to the brain screen
 		pros::lcd::print(4,"Auton Selection: %s", AutoSelection);
-		pros::lcd::print(5,"Potentiometer Reading: %s", AutoSelection);
+		pros::lcd::print(5,"Potentiometer Reading: %f", AutoSelector.get_value_calibrated());
 
 		pros::delay(50);
 	}
@@ -198,29 +208,28 @@ void competition_initialize() {
  * from where it left off.
  */
 void autonomous() {
+	DB.setPose(0, 0, 0);
 	//Auton
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
-	if(AutoSelector.get_angle() <= 90){
+	if(right){
 		//Auton LeftSide
 	//Move forward, Turn right, Put matchload into goal
 	DB.moveTo(0, 41, 1000);
 	DB.turnTo(30, 41, 1000);
-	DB.moveTo(8, 41, 1000);
-	intake(-127);
+	intake(-90);
 	pros::delay(1000);
 	MotorGroupDriveBase.move(127);
 	pros::delay(2000);
 	intake(0);
 	MotorGroupDriveBase.brake();
 	}
-	else if(AutoSelector.get_angle() >= 240){
-		//Auton LeftSide
+	else if(left){
+	//Auton LeftSide
 	//Move forward, Turn right, Put matchload into goal
 	DB.moveTo(0, 41, 1000);
 	DB.turnTo(-30, 41, 1000);
-	DB.moveTo(-8, 41, 1000);
-	intake(-127);
+	intake(-90);
 	pros::delay(1000);
 	MotorGroupDriveBase.move(127);
 	pros::delay(2000);
