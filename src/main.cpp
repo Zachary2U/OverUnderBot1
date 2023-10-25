@@ -172,7 +172,6 @@ void initialize() {
 	DB.setPose(0,0,0);
 	pros::lcd::initialize();
 	AutoSelector.calibrate();
-	pros::delay(2000);
 	autoSelector();
 }
 
@@ -214,27 +213,27 @@ void autonomous() {
 	//NOTE: X is Perpendicular movement to placement
 	if(right){
 		//Auton LeftSide
-	//Move forward, Turn right, Put matchload into goal
-	DB.moveTo(0, 41, 1000);
-	DB.turnTo(30, 41, 1000);
-	intake(-90);
-	pros::delay(1000);
-	MotorGroupDriveBase.move(127);
-	pros::delay(2000);
-	intake(0);
-	MotorGroupDriveBase.brake();
+		//Move forward, Turn right, Put matchload into goal
+		DB.moveTo(0, 41, 1000);
+		DB.turnTo(30, 41, 1000);
+		intake(-90);
+		pros::delay(1000);
+		MotorGroupDriveBase.move(127);
+		pros::delay(2000);
+		intake(0);
+		MotorGroupDriveBase.brake();
 	}
 	else if(left){
-	//Auton LeftSide
-	//Move forward, Turn right, Put matchload into goal
-	DB.moveTo(0, 41, 1000);
-	DB.turnTo(-30, 41, 1000);
-	intake(-90);
-	pros::delay(1000);
-	MotorGroupDriveBase.move(127);
-	pros::delay(2000);
-	intake(0);
-	MotorGroupDriveBase.brake();
+		//Auton LeftSide
+		//Move forward, Turn right, Put matchload into goal
+		DB.moveTo(0, 41, 1000);
+		DB.turnTo(-30, 41, 1000);
+		intake(-90);
+		pros::delay(1000);
+		MotorGroupDriveBase.move(127);
+		pros::delay(2000);
+		intake(0);
+		MotorGroupDriveBase.brake();
 	}
 	else{
 		cataLaunch(127);
