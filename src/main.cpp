@@ -1,4 +1,4 @@
-// Include classess and API
+// Include classess and API (including LemLib used for Autonomous)
 #include "main.h"
 #include "api.h"
 #include "lemlib/chassis/chassis.hpp"
@@ -6,7 +6,6 @@
 #include "pros/adi.hpp"
 #include "pros/misc.h"
 #include "lemlib/api.hpp"
-//#include "classess.cpp"
 
 //Temperary declarations
 
@@ -69,28 +68,54 @@ lemlib::OdomSensors_t sensors {
 
 // Linear Movement PID (Forward and Reverse)
 lemlib::ChassisController_t lateralController {
-    6.4, // kP
-    15, // kD
-    1, // smallErrorRange
+    4.94, // kP
+    3.6, // kD
+    0.25, // smallErrorRange
     100, // smallErrorTimeout
-    3, // largeErrorRange
-    500, // largeErrorTimeout
-    5 // slew rate
+    0.5, // largeErrorRange
+    5000, // largeErrorTimeout
+    30 // slew rate
 };
  
 // Turning PID
 lemlib::ChassisController_t angularController {
-    1.94, // kP
-    16, // kD
-    0.25, // smallErrorRange
-    1000, // smallErrorTimeout
-    1, // largeErrorRange
-    2000, // largeErrorTimeout
+    8.5, // kP
+    50, // kD
+    .25, // smallErrorRange
+    400, // smallErrorTimeout
+    .5, // largeErrorRange
+    1200, // largeErrorTimeout
     40 // slew rate
 };
 
 //Create Chassis (LemLib) For Auton Movement
 lemlib::Chassis DB(drivetrain, lateralController, angularController, sensors);
+
+
+//Print all needed values
+void screenPrint(){
+	while(true){
+		lemlib::Pose pose = DB.getPose(); // get the current position of the robot
+        pros::lcd::print(0, "x: %f", pose.x); // print the x position
+        pros::lcd::print(1, "y: %f", pose.y); // print the y position
+        pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+		pros::delay(20);
+	}
+}
+
+
+//Adaptive new turning PID that utilizes degrees instead of turnTo()
+void turn(double theta){
+	//Account for current degrees rotated
+	theta += DB.getPose().theta;
+
+	// Find coordinates accounting for current position
+	double x = 1000 * cos(theta) + DB.getPose().x;
+  	double y = 1000 * sin(theta) + DB.getPose().y;
+
+	//Execution
+	DB.turnTo(x, y, 500);
+}
 
 //Driver Control
 void arcade(){
@@ -125,6 +150,24 @@ void intake(double volts){
 		Intake.move(volts);
 	}
 }
+
+//Allow for deploy and redeploy of hang mech/endgame
+
+//Allow endgame to be activated and deactivated
+bool endgameFlag = true;
+
+void endgame(){
+	if(endgameFlag == true){
+		Endgame.set_value(endgameFlag);
+		endgameFlag = !endgameFlag;
+	}
+	else{
+		endgameFlag = true;
+		Endgame.set_value(true);
+	}
+}
+
+//For selecting auton
 bool right = false;
 bool left = false;
 
@@ -145,7 +188,7 @@ void autoSelector(){
 			left = false;
 		}
 		else{
-			AutoSelection = "Cata";
+			AutoSelection = "N/A";
 			left = false;
 			right = false;
 		}
@@ -181,6 +224,7 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
+	DB.setPose(0, 0, 0);
 }
 
 /**
@@ -193,6 +237,7 @@ void disabled() {
  * starts.
  */
 void competition_initialize() {
+	DB.setPose(0, 0, 0);
 }
 
 /**
@@ -207,38 +252,13 @@ void competition_initialize() {
  * from where it left off.
  */
 void autonomous() {
-	DB.setPose(0, 0, 0);
 	//Auton
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
+
 	if(right){
-		//Auton LeftSide
-		//Move forward, Turn right, Put matchload into goal
-		DB.moveTo(0, 41, 1000);
-		DB.turnTo(30, 41, 1000);
-		intake(-90);
-		pros::delay(1000);
-		MotorGroupDriveBase.move(127);
-		pros::delay(2000);
-		intake(0);
-		MotorGroupDriveBase.brake();
-	}
-	else if(left){
-		//Auton LeftSide
-		//Move forward, Turn right, Put matchload into goal
-		DB.moveTo(0, 41, 1000);
-		DB.turnTo(-30, 41, 1000);
-		intake(-90);
-		pros::delay(1000);
-		MotorGroupDriveBase.move(127);
-		pros::delay(2000);
-		intake(0);
-		MotorGroupDriveBase.brake();
-	}
-	else{
-		cataLaunch(127);
-		pros::delay(2000);
-		cataLaunch(0);
+		DB.moveTo(0,36,1000);
+		
 	}
 }
 
@@ -261,11 +281,7 @@ void opcontrol() {
 
 		//Delay so information on screen is visible and calls are accurate
 		pros::delay(20);
-		
-		lemlib::Pose pose = DB.getPose(); // get the current position of the robot
-        pros::lcd::print(0, "x: %f", pose.x); // print the x position
-        pros::lcd::print(1, "y: %f", pose.y); // print the y position
-        pros::lcd::print(2, "heading: %f", pose.theta); // print the heading
+		pros::Task printTheScreen(screenPrint);
 
 		//Allow for arcade drive 
 		arcade();
@@ -278,7 +294,7 @@ void opcontrol() {
 			intake(-127);
 		}
     	else{ //Stop Intake	
-            intake(0);
+        	intake(0);
         }
 		
 		//Run Cata
@@ -291,7 +307,7 @@ void opcontrol() {
 
 		//Activate Endgame
 		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-			Endgame.set_value(true);
+			endgame();
 		}
 	}
 }
