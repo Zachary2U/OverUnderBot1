@@ -68,12 +68,12 @@ lemlib::OdomSensors_t sensors {
 
 // Linear Movement PID (Forward and Reverse)
 lemlib::ChassisController_t lateralController {
-    4.94, // kP
-    3.6, // kD
-    0.25, // smallErrorRange
-    100, // smallErrorTimeout
-    0.5, // largeErrorRange
-    5000, // largeErrorTimeout
+    50, // kP
+    50, // kD
+    0, // smallErrorRange
+    10000, // smallErrorTimeout
+    0, // largeErrorRange
+    10000, // largeErrorTimeout
     30 // slew rate
 };
  
@@ -106,15 +106,19 @@ void screenPrint(){
 
 //Adaptive new turning PID that utilizes degrees instead of turnTo()
 void turn(double theta){
+	theta = theta * -1 ;
 	//Account for current degrees rotated
 	theta += DB.getPose().theta;
 
 	// Find coordinates accounting for current position
-	double x = 1000 * cos(theta) + DB.getPose().x;
-  	double y = 1000 * sin(theta) + DB.getPose().y;
+	double x = 1000 * (cos(theta) + DB.getPose().x);
+  	double y = 1000 * (sin(theta) + DB.getPose().y);
 
 	//Execution
-	DB.turnTo(x, y, 500);
+	DB.turnTo(x, y, 1000);
+	std::cout << "X: " << x << std::endl;
+	std::cout << "Y: " << y << std::endl;
+	std::cout << "Theta: " << theta << std::endl;
 }
 
 //Driver Control
@@ -255,11 +259,34 @@ void autonomous() {
 	//Auton
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
+	pros::Task printToScreen(screenPrint);
 
-	if(right){
-		DB.moveTo(0,36,1000);
-		
-	}
+	//if(right){
+		MotorGroupDriveBase.move(127);
+		pros::delay(740);
+		DB.turnTo(100, DB.getPose().y, 1000);
+		intake(-70);
+		pros::delay(500);
+		MotorGroupDriveBase.brake();
+		pros::delay(250);
+		DB.turnTo(-1000, DB.getPose().y, 1000);
+		MotorGroupDriveBase.move(-127);
+		pros::delay(750);
+		MotorGroupDriveBase.move(-70);
+		pros::delay(300);
+		MotorGroupDriveBase.brake();
+		DB.turnTo(-200, 220, 1000);
+		intake(127);
+		MotorGroupDriveBase.move(127);
+		pros::delay(200);
+		MotorGroupDriveBase.brake();
+		DB.turnTo(1000, DB.getPose().y, 1000);
+		pros::delay(200);
+		intake(-70);
+		MotorGroupDriveBase.move(-40);
+		pros::delay(200);
+		DB.turnTo(-1000, DB.getPose().y, 1000);
+	//}
 }
 
 /**
@@ -276,12 +303,15 @@ void autonomous() {
  * task, not resume it from where it left off.
  */
 void opcontrol() {
+
+	//Print values on screen
+	pros::Task printTheScreen(screenPrint);
+
 	//User Control
 	while(true){
 
 		//Delay so information on screen is visible and calls are accurate
 		pros::delay(20);
-		pros::Task printTheScreen(screenPrint);
 
 		//Allow for arcade drive 
 		arcade();
