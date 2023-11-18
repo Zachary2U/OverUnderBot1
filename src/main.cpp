@@ -31,7 +31,7 @@ pros::Motor Cata(10, pros::E_MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_DEGR
 
 //Triport Objects
 //Endgame/Hang
-pros::ADIDigitalOut Endgame('B', false); //Piston starts extended through tubing
+pros::ADIDigitalOut Blocker('B', false); //Piston starts extended through tubing
 //AutonSelector
 pros::ADIPotentiometer AutoSelector('C', pros::E_ADI_POT_V2);
 
@@ -68,11 +68,11 @@ lemlib::OdomSensors_t sensors {
 
 // Linear Movement PID (Forward and Reverse)
 lemlib::ChassisController_t lateralController {
-    50, // kP
-    50, // kD
+    1000, // kP
+    0, // kD
     0, // smallErrorRange
-    10000, // smallErrorTimeout
-    0, // largeErrorRange
+    .1, // smallErrorTimeout
+    10, // largeErrorRange
     10000, // largeErrorTimeout
     30 // slew rate
 };
@@ -90,6 +90,30 @@ lemlib::ChassisController_t angularController {
 
 //Create Chassis (LemLib) For Auton Movement
 lemlib::Chassis DB(drivetrain, lateralController, angularController, sensors);
+
+void badMovePID(double time){
+	MotorGroupDriveBase.move(127);
+	pros::delay(time - 1);
+	MotorGroupDriveBase.move(60);
+	pros::delay(1);
+}
+
+void badTurnPID(double time, bool isRight){
+	int direction = 0;
+	if(isRight){
+		direction = 1;
+	}
+	else{
+		direction = -1;
+	}
+
+	RightDB.move(127 * direction);
+	LeftDB.move(127 * direction);
+	pros::delay(time - 1);
+	RightDB.move(60 * direction);
+	LeftDB.move(60 * direction);
+	pros::delay(1);
+}
 
 
 //Print all needed values
@@ -159,15 +183,14 @@ void intake(double volts){
 
 //Allow endgame to be activated and deactivated
 bool endgameFlag = true;
-
-void endgame(){
+void blocker(){
 	if(endgameFlag == true){
-		Endgame.set_value(endgameFlag);
+		Blocker.set_value(endgameFlag);
 		endgameFlag = !endgameFlag;
 	}
 	else{
 		endgameFlag = true;
-		Endgame.set_value(true);
+		Blocker.set_value(false);
 	}
 }
 
@@ -204,7 +227,6 @@ void autoSelector(){
 
 		pros::delay(50);
 	}
-	pros::lcd::clear();
 }
 
 /**
@@ -241,7 +263,6 @@ void disabled() {
  * starts.
  */
 void competition_initialize() {
-	DB.setPose(0, 0, 0);
 }
 
 /**
@@ -256,37 +277,20 @@ void competition_initialize() {
  * from where it left off.
  */
 void autonomous() {
+	pros::lcd::clear();
+	pros::Task printTheScreen(screenPrint);
 	//Auton
 	//NOTE: Y is original lateral movement
 	//NOTE: X is Perpendicular movement to placement
-	pros::Task printToScreen(screenPrint);
+	//pros::Task printToScreen(screenPrint); -> used for testing only, prints screen during testing
 
-	//if(right){
-		MotorGroupDriveBase.move(127);
-		pros::delay(740);
-		DB.turnTo(100, DB.getPose().y, 1000);
-		intake(-70);
-		pros::delay(500);
-		MotorGroupDriveBase.brake();
-		pros::delay(250);
-		DB.turnTo(-1000, DB.getPose().y, 1000);
-		MotorGroupDriveBase.move(-127);
-		pros::delay(750);
-		MotorGroupDriveBase.move(-70);
-		pros::delay(300);
-		MotorGroupDriveBase.brake();
-		DB.turnTo(-200, 220, 1000);
-		intake(127);
-		MotorGroupDriveBase.move(127);
-		pros::delay(200);
-		MotorGroupDriveBase.brake();
-		DB.turnTo(1000, DB.getPose().y, 1000);
-		pros::delay(200);
-		intake(-70);
-		MotorGroupDriveBase.move(-40);
-		pros::delay(200);
-		DB.turnTo(-1000, DB.getPose().y, 1000);
-	//}
+	if(right){
+		badMovePID(1);
+
+	}
+	if(left){
+		
+	}
 }
 
 /**
@@ -336,8 +340,9 @@ void opcontrol() {
 		}
 
 		//Activate Endgame
-		if(Master.get_digital(pros::E_CONTROLLER_DIGITAL_Y)){
-			endgame();
+		if(Master.get_digital_new_press(pros::E_CONTROLLER_DIGITAL_UP)){
+			blocker();
+
 		}
 	}
 }

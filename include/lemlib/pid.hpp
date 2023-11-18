@@ -95,7 +95,7 @@ class FAPID {
          * reset()
          */
         static void init();
-    private:
+    //private:
         float kF;
         float kA;
         float kP;
