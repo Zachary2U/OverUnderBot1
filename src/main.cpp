@@ -91,28 +91,40 @@ lemlib::ChassisController_t angularController {
 //Create Chassis (LemLib) For Auton Movement
 lemlib::Chassis DB(drivetrain, lateralController, angularController, sensors);
 
-void badMovePID(double time){
-	MotorGroupDriveBase.move(127);
-	pros::delay(time - 1);
-	MotorGroupDriveBase.move(60);
-	pros::delay(1);
+double checkTime(double t){
+	if(t < 0){
+		return 0;
+	}
+	return t;
+}
+
+void badMovePID(double time, bool reverse){
+	time *= 1000;
+	double rev = 1;
+	if(reverse){
+		rev = -1;
+	}
+	MotorGroupDriveBase.move(127 * rev);
+	pros::delay(checkTime(time - time / 5));
+	MotorGroupDriveBase.move(60 * rev);
+	pros::delay(time / 5);
 }
 
 void badTurnPID(double time, bool isRight){
 	int direction = 0;
 	if(isRight){
 		direction = 1;
-	}
+	} 
 	else{
 		direction = -1;
 	}
 
 	RightDB.move(127 * direction);
 	LeftDB.move(127 * direction);
-	pros::delay(time - 1);
+	pros::delay(checkTime(time - time / 5));
 	RightDB.move(60 * direction);
 	LeftDB.move(60 * direction);
-	pros::delay(1);
+	pros::delay(time / 5);
 }
 
 
@@ -237,11 +249,10 @@ void autoSelector(){
  */
 void initialize() {
     //pros::lcd::initialize();
-	DB.calibrate();
-	DB.setPose(0,0,0);
+	//DB.calibrate();
+	//DB.setPose(0,0,0);
 	pros::lcd::initialize();
 	AutoSelector.calibrate();
-	autoSelector();
 }
 
 /**
@@ -250,7 +261,7 @@ void initialize() {
  * the robot is enabled, this task will exit.
  */
 void disabled() {
-	DB.setPose(0, 0, 0);
+	//DB.setPose(0, 0, 0);
 }
 
 /**
@@ -263,6 +274,7 @@ void disabled() {
  * starts.
  */
 void competition_initialize() {
+	autoSelector();
 }
 
 /**
@@ -284,13 +296,40 @@ void autonomous() {
 	//NOTE: X is Perpendicular movement to placement
 	//pros::Task printToScreen(screenPrint); -> used for testing only, prints screen during testing
 
-	if(right){
-		badMovePID(1);
+	blocker();
+	MotorGroupDriveBase.move(-127);
+	pros::delay(1500);
+	MotorGroupDriveBase.brake();
+	/*LeftDB.move(100);
+	RightDB.move(10);
+	pros::delay(1000);
+	MotorGroupDriveBase.brake();
+	intake(127);
+	MotorGroupDriveBase.move(127);
+	pros::delay(4000);
+	MotorGroupDriveBase.brake();
+	MotorGroupDriveBase.move(-50);
+	pros::delay(500);
+	RightDB.move(60);
+	LeftDB.move(-60);
+	pros::delay(400);
+	MotorGroupDriveBase.brake();
+	intake(-80);
+	RightDB.move(60);
+	LeftDB.move(-60);
+	pros::delay(400);
+	MotorGroupDriveBase.move(-127);
+	pros::delay(1500);
+	MotorGroupDriveBase.brake();*/
+
+	/*if(right){
 
 	}
 	if(left){
-		
-	}
+		MotorGroupDriveBase.move(-127);
+		pros::delay(1500);
+		MotorGroupDriveBase.brake();
+	}*/
 }
 
 /**
